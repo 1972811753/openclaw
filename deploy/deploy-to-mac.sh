@@ -67,10 +67,32 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
+    # 加载环境变量
+    if [ -f ~/.zshrc ]; then
+        source ~/.zshrc 2>/dev/null || true
+    fi
+    if [ -f ~/.bash_profile ]; then
+        source ~/.bash_profile 2>/dev/null || true
+    fi
+    if [ -f ~/.bashrc ]; then
+        source ~/.bashrc 2>/dev/null || true
+    fi
+
+    # 常见的 Node.js 安装路径
+    export PATH="$HOME/.nvm/versions/node/$(ls -t ~/.nvm/versions/node 2>/dev/null | head -1)/bin:$PATH"
+    export PATH="/usr/local/bin:$PATH"
+    export PATH="/opt/homebrew/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
+
     # 检查 Node.js
     if ! command -v node &> /dev/null; then
-        echo "❌ Node.js 未安装"
-        echo "请先安装 Node.js 22+"
+        echo "❌ Node.js 未找到"
+        echo ""
+        echo "当前 PATH: $PATH"
+        echo ""
+        echo "请检查 Node.js 安装位置:"
+        echo "  which node"
+        echo "  node -v"
         exit 1
     fi
 
@@ -90,71 +112,188 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     echo "📁 创建临时目录..."
     mkdir -p ~/openclaw-new
     cd ~/openclaw-new
+    echo "   ✅ 目录创建: ~/openclaw-new"
 
+    echo ""
     echo "📦 解压部署包..."
+    PACKAGE_SIZE=$(du -h ~/openclaw-package.tar.gz | cut -f1)
+    echo "   包大小: ${PACKAGE_SIZE}"
+    echo "   解压中..."
     tar -xzf ~/openclaw-package.tar.gz
+    echo "   ✅ 解压完成"
+
+    echo ""
+    echo "🔍 检查解压后的文件..."
+    if [ ! -f openclaw.mjs ]; then
+        echo "   ❌ 找不到 openclaw.mjs"
+        echo "   📂 当前目录内容:"
+        ls -la | head -20
+        exit 1
+    fi
+    echo "   ✅ openclaw.mjs 存在"
+
+    if [ ! -f package.json ]; then
+        echo "   ❌ 找不到 package.json"
+        exit 1
+    fi
+    echo "   ✅ package.json 存在"
+
+    if [ ! -d dist ]; then
+        echo "   ❌ 找不到 dist 目录"
+        exit 1
+    fi
+    DIST_SIZE=$(du -sh dist | cut -f1)
+    echo "   ✅ dist 目录存在 (${DIST_SIZE})"
 
     echo "📥 安装依赖..."
+    echo "   这可能需要几分钟，请耐心等待..."
+    echo ""
+
     if [ "$PKG_MANAGER" = "pnpm" ]; then
-        pnpm install --prod --frozen-lockfile 2>&1 | grep -v "Progress"
+        echo "   使用 pnpm 安装..."
+        pnpm install --prod --frozen-lockfile 2>&1 | while read line; do
+            # 过滤掉进度条，但保留重要信息
+            if [[ ! "$line" =~ "Progress" ]] && [[ ! "$line" =~ "│" ]]; then
+                echo "   $line"
+            fi
+        done
+        echo "   ✅ pnpm 安装完成"
     else
-        npm install --production --no-audit --no-fund
+        echo "   使用 npm 安装..."
+        npm install --production --no-audit --no-fund 2>&1 | while read line; do
+            # 只显示重要的输出行
+            if [[ "$line" =~ "added" ]] || [[ "$line" =~ "removed" ]] || [[ "$line" =~ "changed" ]] || [[ "$line" =~ "audited" ]]; then
+                echo "   $line"
+            fi
+        done
+        echo "   ✅ npm 安装完成"
+    fi
+
+    echo ""
+    echo "📊 依赖统计:"
+    if [ -d node_modules ]; then
+        MODULE_COUNT=$(find node_modules -maxdepth 1 -type d | wc -l | tr -d ' ')
+        MODULE_SIZE=$(du -sh node_modules | cut -f1)
+        echo "   模块数量: $((MODULE_COUNT - 1))"
+        echo "   占用空间: ${MODULE_SIZE}"
     fi
 
     # 备份旧版本
+    echo ""
     if [ -d ~/openclaw ]; then
         BACKUP_NAME="openclaw.backup.$(date +%Y%m%d%H%M%S)"
-        echo "💾 备份旧版本到: ~/${BACKUP_NAME}"
+        echo "💾 备份旧版本..."
+        echo "   旧版本: ~/openclaw"
+        echo "   备份到: ~/${BACKUP_NAME}"
         mv ~/openclaw ~/"${BACKUP_NAME}"
+        echo "   ✅ 备份完成"
 
         # 只保留最近 3 个备份
-        ls -dt ~/openclaw.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
+        OLD_BACKUPS=$(ls -dt ~/openclaw.backup.* 2>/dev/null | tail -n +4)
+        if [ -n "$OLD_BACKUPS" ]; then
+            echo "   🗑️  清理旧备份..."
+            echo "$OLD_BACKUPS" | xargs rm -rf 2>/dev/null || true
+        fi
+    else
+        echo "ℹ️  首次部署，无需备份"
     fi
 
     # 替换为新版本
+    echo ""
     echo "🔄 部署新版本..."
+    echo "   移动: ~/openclaw-new → ~/openclaw"
     mv ~/openclaw-new ~/openclaw
+    echo "   ✅ 部署完成"
+
+    # 修复配置文件中的路径引用
+    if [ -f ~/.openclaw/openclaw.json ]; then
+        echo ""
+        echo "🔧 修复配置文件路径..."
+
+        # 检查是否有备份路径引用
+        if grep -q "openclaw.backup" ~/.openclaw/openclaw.json; then
+            echo "   发现旧备份路径引用"
+
+            # 备份配置文件
+            cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.pre-deploy
+
+            # 替换所有备份路径为当前路径
+            # 使用 sed 兼容 macOS 和 Linux
+            if sed --version 2>&1 | grep -q GNU; then
+                # GNU sed (Linux)
+                sed -i "s|$HOME/openclaw\.backup\.[0-9]*|$HOME/openclaw|g" ~/.openclaw/openclaw.json
+            else
+                # BSD sed (macOS)
+                sed -i '' "s|$HOME/openclaw\.backup\.[0-9]*|$HOME/openclaw|g" ~/.openclaw/openclaw.json
+            fi
+
+            echo "   ✅ 路径已更新"
+            echo "   备份: ~/.openclaw/openclaw.json.pre-deploy"
+        else
+            echo "   ✅ 配置路径正确，无需修复"
+        fi
+    fi
 
     # 检查配置
     echo ""
+    echo "⚙️  检查配置..."
     if [ ! -f ~/.openclaw/openclaw.json ]; then
-        echo "⚠️  配置文件不存在"
+        echo "   ⚠️  配置文件不存在"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📋 下一步操作"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
         echo "请运行初始化:"
         echo "  cd ~/openclaw"
         echo "  node openclaw.mjs onboard --install-daemon"
         echo ""
     else
-        echo "✅ 配置文件存在"
+        echo "   ✅ 配置文件存在: ~/.openclaw/openclaw.json"
 
         # 尝试重启服务
         if launchctl list 2>/dev/null | grep -q "ai.openclaw.gateway"; then
             echo ""
             echo "🔄 重启守护进程..."
 
+            # 获取当前状态
+            OLD_PID=$(launchctl list | grep "ai.openclaw.gateway" | awk '{print $1}')
+            if [ "$OLD_PID" != "-" ]; then
+                echo "   当前 PID: $OLD_PID"
+            fi
+
             # 停止服务
+            echo "   停止服务..."
             launchctl stop ai.openclaw.gateway 2>/dev/null || true
             sleep 2
 
             # 启动服务
+            echo "   启动服务..."
             if launchctl start ai.openclaw.gateway 2>/dev/null; then
-                echo "✅ 服务已重启"
-
-                # 等待服务启动
                 sleep 3
 
                 # 检查状态
-                if launchctl list | grep -q "ai.openclaw.gateway"; then
-                    echo "✅ 服务运行正常"
+                NEW_STATUS=$(launchctl list | grep "ai.openclaw.gateway" || echo "")
+                if [ -n "$NEW_STATUS" ]; then
+                    NEW_PID=$(echo "$NEW_STATUS" | awk '{print $1}')
+                    echo "   ✅ 服务已重启"
+                    if [ "$NEW_PID" != "-" ]; then
+                        echo "   新 PID: $NEW_PID"
+                    fi
                 else
-                    echo "⚠️  服务可能未正常启动，请检查日志"
+                    echo "   ⚠️  服务可能未正常启动"
+                    echo "   请检查日志: tail -f ~/.openclaw/logs/gateway.log"
                 fi
             else
-                echo "⚠️  服务启动失败"
-                echo "请手动检查: launchctl list | grep openclaw"
+                echo "   ⚠️  服务启动失败"
+                echo "   请手动检查: launchctl list | grep openclaw"
             fi
         else
-            echo "⚠️  守护进程未安装"
+            echo "   ⚠️  守护进程未安装"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📋 下一步操作"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo ""
             echo "安装守护进程:"
             echo "  cd ~/openclaw"
@@ -166,6 +305,7 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     echo ""
     echo "🧹 清理临时文件..."
     rm -f ~/openclaw-package.tar.gz
+    echo "   ✅ 清理完成"
 
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -185,3 +325,4 @@ REMOTE_SCRIPT
 
 echo ""
 echo "🎉 部署成功！"
+

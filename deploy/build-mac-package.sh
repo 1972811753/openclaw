@@ -39,11 +39,9 @@ tar --exclude='node_modules' \
     --exclude='test' \
     --exclude='.idea' \
     --exclude='vendor' \
-    --exclude='docs' \
     --exclude='.github' \
     -czf "${SCRIPT_DIR}/${PACKAGE_NAME}" \
     dist/ \
-    ui/dist/ \
     package.json \
     pnpm-lock.yaml \
     pnpm-workspace.yaml \
@@ -53,7 +51,8 @@ tar --exclude='node_modules' \
     skills/ \
     extensions/ \
     patches/ \
-    scripts/
+    scripts/ \
+    docs/reference/templates/
 
 echo ""
 echo "✅ 构建完成！"
@@ -64,3 +63,5 @@ echo "  大小: $(du -h "${SCRIPT_DIR}/${PACKAGE_NAME}" | cut -f1)"
 echo ""
 echo "📤 部署方法:"
 echo "  ./deploy/deploy-to-mac.sh user@remote-mac ${SCRIPT_DIR}/${PACKAGE_NAME}"
+
+
