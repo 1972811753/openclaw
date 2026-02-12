@@ -85,6 +85,8 @@ Defaults:
 
 - Enabled by default.
 - Watches memory files for changes (debounced).
+- Configure memory search under `agents.defaults.memorySearch` (not top-level
+  `memorySearch`).
 - Uses remote embeddings by default. If `memorySearch.provider` is not set, OpenClaw auto-selects:
   1. `local` if a `memorySearch.local.modelPath` is configured and the file exists.
   2. `openai` if an OpenAI key can be resolved.
@@ -137,10 +139,11 @@ out to QMD for retrieval. Key points:
 - Boot refresh now runs in the background by default so chat startup is not
   blocked; set `memory.qmd.update.waitForBootSync = true` to keep the previous
   blocking behavior.
-- Searches run via `qmd query --json`, scoped to OpenClaw-managed collections.
-  If QMD fails or the binary is missing,
-  OpenClaw automatically falls back to the builtin SQLite manager so memory tools
-  keep working.
+- Searches run via `memory.qmd.searchMode` (default `qmd query --json`; also
+  supports `search` and `vsearch`). If the selected mode rejects flags on your
+  QMD build, OpenClaw retries with `qmd query`. If QMD fails or the binary is
+  missing, OpenClaw automatically falls back to the builtin SQLite manager so
+  memory tools keep working.
 - OpenClaw does not expose QMD embed batch-size tuning today; batch behavior is
   controlled by QMD itself.
 - **First search may be slow**: QMD may download local GGUF models (reranker/query
@@ -175,6 +178,8 @@ out to QMD for retrieval. Key points:
 **Config surface (`memory.qmd.*`)**
 
 - `command` (default `qmd`): override the executable path.
+- `searchMode` (default `query`): pick which QMD command backs
+  `memory_search` (`query`, `search`, `vsearch`).
 - `includeDefaultMemory` (default `true`): auto-index `MEMORY.md` + `memory/**/*.md`.
 - `paths[]`: add extra directories/files (`path`, optional `pattern`, optional
   stable `name`).
