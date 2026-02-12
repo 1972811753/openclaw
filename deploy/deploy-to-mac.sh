@@ -262,14 +262,9 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
                 echo "   当前 PID: $OLD_PID"
             fi
 
-            # 停止服务
-            echo "   停止服务..."
-            launchctl stop ai.openclaw.gateway 2>/dev/null || true
-            sleep 2
-
-            # 启动服务
-            echo "   启动服务..."
-            if launchctl start ai.openclaw.gateway 2>/dev/null; then
+            # 使用 kickstart -k 重启服务（macOS 推荐方式）
+            echo "   重启服务..."
+            if launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway 2>/dev/null; then
                 sleep 3
 
                 # 检查状态
@@ -277,7 +272,7 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
                 if [ -n "$NEW_STATUS" ]; then
                     NEW_PID=$(echo "$NEW_STATUS" | awk '{print $1}')
                     echo "   ✅ 服务已重启"
-                    if [ "$NEW_PID" != "-" ]; then
+                    if [ "$NEW_PID" != "-" ] && [ "$NEW_PID" != "$OLD_PID" ]; then
                         echo "   新 PID: $NEW_PID"
                     fi
                 else
@@ -285,7 +280,7 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
                     echo "   请检查日志: tail -f ~/.openclaw/logs/gateway.log"
                 fi
             else
-                echo "   ⚠️  服务启动失败"
+                echo "   ⚠️  服务重启失败"
                 echo "   请手动检查: launchctl list | grep openclaw"
             fi
         else
@@ -319,10 +314,12 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     echo "常用命令:"
     echo "  查看状态: launchctl list | grep openclaw"
     echo "  查看日志: tail -f ~/.openclaw/logs/gateway.log"
-    echo "  重启服务: launchctl restart ai.openclaw.gateway"
+    echo "  停止服务: launchctl stop ai.openclaw.gateway"
+    echo "  启动服务: launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway"
     echo ""
 REMOTE_SCRIPT
 
 echo ""
 echo "🎉 部署成功！"
+
 

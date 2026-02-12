@@ -548,10 +548,10 @@ export function renderAgents(props: AgentsProps) {
         <div class="row" style="justify-content: space-between;">
           <div>
             <div class="card-title">Agents</div>
-            <div class="card-sub">${agents.length} configured.</div>
+            <div class="card-sub">已配置 ${agents.length} 个。</div>
           </div>
           <button class="btn btn--sm" ?disabled=${props.loading} @click=${props.onRefresh}>
-            ${props.loading ? "Loading…" : "Refresh"}
+            ${props.loading ? "加载中…" : "刷新"}
           </button>
         </div>
         ${
@@ -563,7 +563,7 @@ export function renderAgents(props: AgentsProps) {
           ${
             agents.length === 0
               ? html`
-                  <div class="muted">No agents found.</div>
+                  <div class="muted">未找到 agent。</div>
                 `
               : agents.map((agent) => {
                   const badge = agentBadgeText(agent.id, defaultId);
@@ -593,8 +593,8 @@ export function renderAgents(props: AgentsProps) {
           !selectedAgent
             ? html`
                 <div class="card">
-                  <div class="card-title">Select an agent</div>
-                  <div class="card-sub">Pick an agent to inspect its workspace and tools.</div>
+                  <div class="card-title">选择一个 Agent</div>
+                  <div class="card-sub">选择一个 agent 以查看其工作空间和工具。</div>
                 </div>
               `
             : html`
@@ -727,7 +727,7 @@ function renderAgentHeader(
 ) {
   const badge = agentBadgeText(agent.id, defaultId);
   const displayName = normalizeAgentLabel(agent);
-  const subtitle = agent.identity?.theme?.trim() || "Agent workspace and routing.";
+  const subtitle = agent.identity?.theme?.trim() || "Agent 工作空间和路由。";
   const emoji = resolveAgentEmoji(agent, agentIdentity);
   return html`
     <section class="card agent-header">
@@ -750,12 +750,12 @@ function renderAgentHeader(
 
 function renderAgentTabs(active: AgentsPanel, onSelect: (panel: AgentsPanel) => void) {
   const tabs: Array<{ id: AgentsPanel; label: string }> = [
-    { id: "overview", label: "Overview" },
-    { id: "files", label: "Files" },
-    { id: "tools", label: "Tools" },
+    { id: "overview", label: "概览" },
+    { id: "files", label: "文件" },
+    { id: "tools", label: "工具" },
     { id: "skills", label: "Skills" },
-    { id: "channels", label: "Channels" },
-    { id: "cron", label: "Cron Jobs" },
+    { id: "channels", label: "渠道" },
+    { id: "cron", label: "Cron 任务" },
   ];
   return html`
     <div class="agent-tabs">
@@ -832,50 +832,46 @@ function renderAgentOverview(params: {
   const identityEmoji = resolvedEmoji || "-";
   const skillFilter = Array.isArray(config.entry?.skills) ? config.entry?.skills : null;
   const skillCount = skillFilter?.length ?? null;
-  const identityStatus = agentIdentityLoading
-    ? "Loading…"
-    : agentIdentityError
-      ? "Unavailable"
-      : "";
+  const identityStatus = agentIdentityLoading ? "加载中…" : agentIdentityError ? "不可用" : "";
   const isDefault = Boolean(params.defaultId && agent.id === params.defaultId);
 
   return html`
     <section class="card">
-      <div class="card-title">Overview</div>
-      <div class="card-sub">Workspace paths and identity metadata.</div>
+      <div class="card-title">概览</div>
+      <div class="card-sub">工作空间路径和身份元数据。</div>
       <div class="agents-overview-grid" style="margin-top: 16px;">
         <div class="agent-kv">
-          <div class="label">Workspace</div>
+          <div class="label">工作空间</div>
           <div class="mono">${workspace}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Primary Model</div>
+          <div class="label">主要模型</div>
           <div class="mono">${model}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Identity Name</div>
+          <div class="label">身份名称</div>
           <div>${identityName}</div>
           ${identityStatus ? html`<div class="agent-kv-sub muted">${identityStatus}</div>` : nothing}
         </div>
         <div class="agent-kv">
-          <div class="label">Default</div>
-          <div>${isDefault ? "yes" : "no"}</div>
+          <div class="label">默认</div>
+          <div>${isDefault ? "是" : "否"}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Identity Emoji</div>
+          <div class="label">身份表情</div>
           <div>${identityEmoji}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Skills Filter</div>
-          <div>${skillFilter ? `${skillCount} selected` : "all skills"}</div>
+          <div class="label">Skills 过滤器</div>
+          <div>${skillFilter ? `已选择 ${skillCount} 个` : "全部 skills"}</div>
         </div>
       </div>
 
       <div class="agent-model-select" style="margin-top: 20px;">
-        <div class="label">Model Selection</div>
+        <div class="label">模型选择</div>
         <div class="row" style="gap: 12px; flex-wrap: wrap;">
           <label class="field" style="min-width: 260px; flex: 1;">
-            <span>Primary model${isDefault ? " (default)" : ""}</span>
+            <span>主要模型${isDefault ? "（默认）" : ""}</span>
             <select
               .value=${effectivePrimary ?? ""}
               ?disabled=${!configForm || configLoading || configSaving}
@@ -887,9 +883,7 @@ function renderAgentOverview(params: {
                   ? nothing
                   : html`
                       <option value="">
-                        ${
-                          defaultPrimary ? `Inherit default (${defaultPrimary})` : "Inherit default"
-                        }
+                        ${defaultPrimary ? `继承默认值（${defaultPrimary}）` : "继承默认值"}
                       </option>
                     `
               }
@@ -897,7 +891,7 @@ function renderAgentOverview(params: {
             </select>
           </label>
           <label class="field" style="min-width: 260px; flex: 1;">
-            <span>Fallbacks (comma-separated)</span>
+            <span>后备模型（逗号分隔）</span>
             <input
               .value=${fallbackText}
               ?disabled=${!configForm || configLoading || configSaving}
@@ -916,14 +910,14 @@ function renderAgentOverview(params: {
             ?disabled=${configLoading}
             @click=${onConfigReload}
           >
-            Reload Config
+            重新加载配置
           </button>
           <button
             class="btn btn--sm primary"
             ?disabled=${configSaving || !configDirty}
             @click=${onConfigSave}
           >
-            ${configSaving ? "Saving…" : "Save"}
+            ${configSaving ? "保存中…" : "保存"}
           </button>
         </div>
       </div>
@@ -934,32 +928,32 @@ function renderAgentOverview(params: {
 function renderAgentContextCard(context: AgentContext, subtitle: string) {
   return html`
     <section class="card">
-      <div class="card-title">Agent Context</div>
+      <div class="card-title">Agent 上下文</div>
       <div class="card-sub">${subtitle}</div>
       <div class="agents-overview-grid" style="margin-top: 16px;">
         <div class="agent-kv">
-          <div class="label">Workspace</div>
+          <div class="label">工作空间</div>
           <div class="mono">${context.workspace}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Primary Model</div>
+          <div class="label">主要模型</div>
           <div class="mono">${context.model}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Identity Name</div>
+          <div class="label">身份名称</div>
           <div>${context.identityName}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Identity Emoji</div>
+          <div class="label">身份表情</div>
           <div>${context.identityEmoji}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Skills Filter</div>
+          <div class="label">Skills 过滤器</div>
           <div>${context.skillsLabel}</div>
         </div>
         <div class="agent-kv">
-          <div class="label">Default</div>
-          <div>${context.isDefault ? "yes" : "no"}</div>
+          <div class="label">默认</div>
+          <div>${context.isDefault ? "是" : "否"}</div>
         </div>
       </div>
     </section>
@@ -1121,15 +1115,15 @@ function renderAgentChannels(params: {
       <section class="card">
         <div class="row" style="justify-content: space-between;">
           <div>
-            <div class="card-title">Channels</div>
-            <div class="card-sub">Gateway-wide channel status snapshot.</div>
+            <div class="card-title">渠道</div>
+            <div class="card-sub">网关范围的渠道状态快照。</div>
           </div>
           <button class="btn btn--sm" ?disabled=${params.loading} @click=${params.onRefresh}>
-            ${params.loading ? "Refreshing…" : "Refresh"}
+            ${params.loading ? "刷新中…" : "刷新"}
           </button>
         </div>
         <div class="muted" style="margin-top: 8px;">
-          Last refresh: ${lastSuccessLabel}
+          上次刷新：${lastSuccessLabel}
         </div>
         ${
           params.error
@@ -1139,26 +1133,24 @@ function renderAgentChannels(params: {
         ${
           !params.snapshot
             ? html`
-                <div class="callout info" style="margin-top: 12px">Load channels to see live status.</div>
+                <div class="callout info" style="margin-top: 12px">加载渠道以查看实时状态。</div>
               `
             : nothing
         }
         ${
           entries.length === 0
             ? html`
-                <div class="muted" style="margin-top: 16px">No channels found.</div>
+                <div class="muted" style="margin-top: 16px">未找到渠道。</div>
               `
             : html`
               <div class="list" style="margin-top: 16px;">
                 ${entries.map((entry) => {
                   const summary = summarizeChannelAccounts(entry.accounts);
                   const status = summary.total
-                    ? `${summary.connected}/${summary.total} connected`
-                    : "no accounts";
-                  const config = summary.configured
-                    ? `${summary.configured} configured`
-                    : "not configured";
-                  const enabled = summary.total ? `${summary.enabled} enabled` : "disabled";
+                    ? `${summary.connected}/${summary.total} 已连接`
+                    : "无账户";
+                  const config = summary.configured ? `${summary.configured} 已配置` : "未配置";
+                  const enabled = summary.total ? `${summary.enabled} 已启用` : "已禁用";
                   const extras = resolveChannelExtras(params.configForm, entry.id);
                   return html`
                     <div class="list-item">

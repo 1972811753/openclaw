@@ -94,7 +94,7 @@ export function renderCron(props: CronProps) {
         <div class="card-sub">创建一个定时唤醒或智能体运行任务。</div>
         <div class="form-grid" style="margin-top: 16px;">
           <label class="field">
-            <span>Name</span>
+            <span>名称</span>
             <input
               .value=${props.form.name}
               @input=${(e: Event) =>
@@ -102,7 +102,7 @@ export function renderCron(props: CronProps) {
             />
           </label>
           <label class="field">
-            <span>Description</span>
+            <span>描述</span>
             <input
               .value=${props.form.description}
               @input=${(e: Event) =>
@@ -119,7 +119,7 @@ export function renderCron(props: CronProps) {
             />
           </label>
           <label class="field checkbox">
-            <span>Enabled</span>
+            <span>已启用</span>
             <input
               type="checkbox"
               .checked=${props.form.enabled}
@@ -128,7 +128,7 @@ export function renderCron(props: CronProps) {
             />
           </label>
           <label class="field">
-            <span>Schedule</span>
+            <span>调度计划</span>
             <select
               .value=${props.form.scheduleKind}
               @change=${(e: Event) =>
@@ -146,7 +146,7 @@ export function renderCron(props: CronProps) {
         ${renderScheduleFields(props)}
         <div class="form-grid" style="margin-top: 12px;">
           <label class="field">
-            <span>Session</span>
+            <span>会话</span>
             <select
               .value=${props.form.sessionTarget}
               @change=${(e: Event) =>
@@ -160,7 +160,7 @@ export function renderCron(props: CronProps) {
             </select>
           </label>
           <label class="field">
-            <span>Wake mode</span>
+            <span>唤醒模式</span>
             <select
               .value=${props.form.wakeMode}
               @change=${(e: Event) =>
@@ -168,12 +168,12 @@ export function renderCron(props: CronProps) {
                   wakeMode: (e.target as HTMLSelectElement).value as CronFormState["wakeMode"],
                 })}
             >
-              <option value="now">Now</option>
-              <option value="next-heartbeat">Next heartbeat</option>
+              <option value="now">立即</option>
+              <option value="next-heartbeat">下次心跳</option>
             </select>
           </label>
           <label class="field">
-            <span>Payload</span>
+            <span>载荷</span>
             <select
               .value=${props.form.payloadKind}
               @change=${(e: Event) =>
@@ -188,7 +188,7 @@ export function renderCron(props: CronProps) {
           </label>
         </div>
         <label class="field" style="margin-top: 12px;">
-          <span>${props.form.payloadKind === "systemEvent" ? "System text" : "Agent message"}</span>
+          <span>${props.form.payloadKind === "systemEvent" ? "系统文本" : "Agent 消息"}</span>
           <textarea
             .value=${props.form.payloadText}
             @input=${(e: Event) =>
@@ -203,7 +203,7 @@ export function renderCron(props: CronProps) {
             ? html`
                 <div class="form-grid" style="margin-top: 12px;">
                   <label class="field">
-                    <span>Delivery</span>
+                    <span>投递方式</span>
                     <select
                       .value=${props.form.deliveryMode}
                       @change=${(e: Event) =>
@@ -212,12 +212,12 @@ export function renderCron(props: CronProps) {
                             .value as CronFormState["deliveryMode"],
                         })}
                     >
-                      <option value="announce">Announce summary (default)</option>
-                      <option value="none">None (internal)</option>
+                      <option value="announce">宣布摘要（默认）</option>
+                      <option value="none">无（内部）</option>
                     </select>
                   </label>
                   <label class="field">
-                    <span>Timeout (seconds)</span>
+                    <span>超时（秒）</span>
                     <input
                       .value=${props.form.timeoutSeconds}
                       @input=${(e: Event) =>
@@ -230,7 +230,7 @@ export function renderCron(props: CronProps) {
                     props.form.deliveryMode === "announce"
                       ? html`
                           <label class="field">
-                            <span>Channel</span>
+                            <span>渠道</span>
                             <select
                               .value=${props.form.deliveryChannel || "last"}
                               @change=${(e: Event) =>
@@ -247,7 +247,7 @@ export function renderCron(props: CronProps) {
                             </select>
                           </label>
                           <label class="field">
-                            <span>To</span>
+                            <span>发送至</span>
                             <input
                               .value=${props.form.deliveryTo}
                               @input=${(e: Event) =>
@@ -266,19 +266,19 @@ export function renderCron(props: CronProps) {
         }
         <div class="row" style="margin-top: 14px;">
           <button class="btn primary" ?disabled=${props.busy} @click=${props.onAdd}>
-            ${props.busy ? "Saving…" : "Add job"}
+            ${props.busy ? "保存中…" : "添加任务"}
           </button>
         </div>
       </div>
     </section>
 
     <section class="card" style="margin-top: 18px;">
-      <div class="card-title">Jobs</div>
-      <div class="card-sub">All scheduled jobs stored in the gateway.</div>
+      <div class="card-title">任务列表</div>
+      <div class="card-sub">存储在网关中的所有已调度任务。</div>
       ${
         props.jobs.length === 0
           ? html`
-              <div class="muted" style="margin-top: 12px">No jobs yet.</div>
+              <div class="muted" style="margin-top: 12px">暂无任务。</div>
             `
           : html`
             <div class="list" style="margin-top: 12px;">
@@ -289,16 +289,16 @@ export function renderCron(props: CronProps) {
     </section>
 
     <section class="card" style="margin-top: 18px;">
-      <div class="card-title">Run history</div>
-      <div class="card-sub">Latest runs for ${selectedRunTitle}.</div>
+      <div class="card-title">运行历史</div>
+      <div class="card-sub">${selectedRunTitle} 的最新运行记录。</div>
       ${
         props.runsJobId == null
           ? html`
-              <div class="muted" style="margin-top: 12px">Select a job to inspect run history.</div>
+              <div class="muted" style="margin-top: 12px">选择一个任务以查看运行历史。</div>
             `
           : orderedRuns.length === 0
             ? html`
-                <div class="muted" style="margin-top: 12px">No runs yet.</div>
+                <div class="muted" style="margin-top: 12px">暂无运行记录。</div>
               `
             : html`
               <div class="list" style="margin-top: 12px;">
@@ -315,7 +315,7 @@ function renderScheduleFields(props: CronProps) {
   if (form.scheduleKind === "at") {
     return html`
       <label class="field" style="margin-top: 12px;">
-        <span>Run at</span>
+        <span>运行时间</span>
         <input
           type="datetime-local"
           .value=${form.scheduleAt}
@@ -331,7 +331,7 @@ function renderScheduleFields(props: CronProps) {
     return html`
       <div class="form-grid" style="margin-top: 12px;">
         <label class="field">
-          <span>Every</span>
+          <span>间隔</span>
           <input
             .value=${form.everyAmount}
             @input=${(e: Event) =>
@@ -341,7 +341,7 @@ function renderScheduleFields(props: CronProps) {
           />
         </label>
         <label class="field">
-          <span>Unit</span>
+          <span>单位</span>
           <select
             .value=${form.everyUnit}
             @change=${(e: Event) =>
@@ -349,9 +349,9 @@ function renderScheduleFields(props: CronProps) {
                 everyUnit: (e.target as HTMLSelectElement).value as CronFormState["everyUnit"],
               })}
           >
-            <option value="minutes">Minutes</option>
-            <option value="hours">Hours</option>
-            <option value="days">Days</option>
+            <option value="minutes">分钟</option>
+            <option value="hours">小时</option>
+            <option value="days">天</option>
           </select>
         </label>
       </div>
@@ -360,7 +360,7 @@ function renderScheduleFields(props: CronProps) {
   return html`
     <div class="form-grid" style="margin-top: 12px;">
       <label class="field">
-        <span>Expression</span>
+        <span>表达式</span>
         <input
           .value=${form.cronExpr}
           @input=${(e: Event) =>
@@ -368,7 +368,7 @@ function renderScheduleFields(props: CronProps) {
         />
       </label>
       <label class="field">
-        <span>Timezone (optional)</span>
+        <span>时区（可选）</span>
         <input
           .value=${form.cronTz}
           @input=${(e: Event) =>
@@ -388,7 +388,7 @@ function renderJob(job: CronJob, props: CronProps) {
         <div class="list-title">${job.name}</div>
         <div class="list-sub">${formatCronSchedule(job)}</div>
         ${renderJobPayload(job)}
-        ${job.agentId ? html`<div class="muted cron-job-agent">Agent: ${job.agentId}</div>` : nothing}
+        ${job.agentId ? html`<div class="muted cron-job-agent">Agent：${job.agentId}</div>` : nothing}
       </div>
       <div class="list-meta">
         ${renderJobState(job)}
@@ -396,7 +396,7 @@ function renderJob(job: CronJob, props: CronProps) {
       <div class="cron-job-footer">
         <div class="chip-row cron-job-chips">
           <span class=${`chip ${job.enabled ? "chip-ok" : "chip-danger"}`}>
-            ${job.enabled ? "enabled" : "disabled"}
+            ${job.enabled ? "已启用" : "已禁用"}
           </span>
           <span class="chip">${job.sessionTarget}</span>
           <span class="chip">${job.wakeMode}</span>
@@ -410,7 +410,7 @@ function renderJob(job: CronJob, props: CronProps) {
               props.onToggle(job, !job.enabled);
             }}
           >
-            ${job.enabled ? "Disable" : "Enable"}
+            ${job.enabled ? "禁用" : "启用"}
           </button>
           <button
             class="btn"
@@ -420,7 +420,7 @@ function renderJob(job: CronJob, props: CronProps) {
               props.onRun(job);
             }}
           >
-            Run
+            运行
           </button>
           <button
             class="btn"
@@ -430,7 +430,7 @@ function renderJob(job: CronJob, props: CronProps) {
               props.onLoadRuns(job.id);
             }}
           >
-            History
+            历史
           </button>
           <button
             class="btn danger"
@@ -440,7 +440,7 @@ function renderJob(job: CronJob, props: CronProps) {
               props.onRemove(job);
             }}
           >
-            Remove
+            删除
           </button>
         </div>
       </div>
@@ -451,7 +451,7 @@ function renderJob(job: CronJob, props: CronProps) {
 function renderJobPayload(job: CronJob) {
   if (job.payload.kind === "systemEvent") {
     return html`<div class="cron-job-detail">
-      <span class="cron-job-detail-label">System</span>
+      <span class="cron-job-detail-label">系统</span>
       <span class="muted cron-job-detail-value">${job.payload.text}</span>
     </div>`;
   }
@@ -464,13 +464,13 @@ function renderJobPayload(job: CronJob) {
 
   return html`
     <div class="cron-job-detail">
-      <span class="cron-job-detail-label">Prompt</span>
+      <span class="cron-job-detail-label">提示词</span>
       <span class="muted cron-job-detail-value">${job.payload.message}</span>
     </div>
     ${
       delivery
         ? html`<div class="cron-job-detail">
-            <span class="cron-job-detail-label">Delivery</span>
+            <span class="cron-job-detail-label">投递</span>
             <span class="muted cron-job-detail-value">${delivery.mode}${deliveryTarget}</span>
           </div>`
         : nothing
@@ -501,17 +501,17 @@ function renderJobState(job: CronJob) {
   return html`
     <div class="cron-job-state">
       <div class="cron-job-state-row">
-        <span class="cron-job-state-key">Status</span>
+        <span class="cron-job-state-key">状态</span>
         <span class=${`cron-job-status-pill ${statusClass}`}>${status}</span>
       </div>
       <div class="cron-job-state-row">
-        <span class="cron-job-state-key">Next</span>
+        <span class="cron-job-state-key">下次</span>
         <span class="cron-job-state-value" title=${formatMs(nextRunAtMs)}>
           ${formatStateRelative(nextRunAtMs)}
         </span>
       </div>
       <div class="cron-job-state-row">
-        <span class="cron-job-state-key">Last</span>
+        <span class="cron-job-state-key">上次</span>
         <span class="cron-job-state-value" title=${formatMs(lastRunAtMs)}>
           ${formatStateRelative(lastRunAtMs)}
         </span>
@@ -536,7 +536,7 @@ function renderRun(entry: CronRunLogEntry, basePath: string) {
         <div class="muted">${entry.durationMs ?? 0}ms</div>
         ${
           chatUrl
-            ? html`<div><a class="session-link" href=${chatUrl}>Open run chat</a></div>`
+            ? html`<div><a class="session-link" href=${chatUrl}>打开运行会话</a></div>`
             : nothing
         }
         ${entry.error ? html`<div class="muted">${entry.error}</div>` : nothing}
