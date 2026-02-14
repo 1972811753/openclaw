@@ -12,6 +12,17 @@ echo "🦞 OpenClaw Mac 部署包构建"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# 检查并安装依赖
+echo "📦 检查依赖..."
+if [ ! -d "node_modules" ] || [ "pnpm-lock.yaml" -nt "node_modules" ]; then
+    echo "📥 安装/更新依赖..."
+    pnpm install
+    echo "✅ 依赖安装完成"
+else
+    echo "✅ 依赖已是最新"
+fi
+echo ""
+
 # 获取版本号
 VERSION=$(node -p "require('./package.json').version")
 PACKAGE_NAME="openclaw-${VERSION}-mac.tar.gz"
