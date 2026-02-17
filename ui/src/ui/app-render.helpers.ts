@@ -1,15 +1,51 @@
 import { html } from "lit";
 import { repeat } from "lit/directives/repeat.js";
-import type { AppViewState } from "./app-view-state.ts";
-import type { ThemeTransitionContext } from "./theme-transition.ts";
-import type { ThemeMode } from "./theme.ts";
-import type { SessionsListResult } from "./types.ts";
+import { t } from "../i18n/index.ts";
 import { refreshChat } from "./app-chat.ts";
 import { syncUrlWithSessionKey } from "./app-settings.ts";
+import type { AppViewState } from "./app-view-state.ts";
 import { OpenClawApp } from "./app.ts";
 import { ChatState, loadChatHistory } from "./controllers/chat.ts";
 import { icons } from "./icons.ts";
 import { iconForTab, pathForTab, titleForTab, type Tab } from "./navigation.ts";
+import type { ThemeTransitionContext } from "./theme-transition.ts";
+import type { ThemeMode } from "./theme.ts";
+import type { SessionsListResult } from "./types.ts";
+
+type SessionDefaultsSnapshot = {
+  mainSessionKey?: string;
+  mainKey?: string;
+};
+
+function resolveSidebarChatSessionKey(state: AppViewState): string {
+  const snapshot = state.hello?.snapshot as
+    | { sessionDefaults?: SessionDefaultsSnapshot }
+    | undefined;
+  const mainSessionKey = snapshot?.sessionDefaults?.mainSessionKey?.trim();
+  if (mainSessionKey) {
+    return mainSessionKey;
+  }
+  const mainKey = snapshot?.sessionDefaults?.mainKey?.trim();
+  if (mainKey) {
+    return mainKey;
+  }
+  return "main";
+}
+
+function resetChatStateForSessionSwitch(state: AppViewState, sessionKey: string) {
+  state.sessionKey = sessionKey;
+  state.chatMessage = "";
+  state.chatStream = null;
+  (state as unknown as OpenClawApp).chatStreamStartedAt = null;
+  state.chatRunId = null;
+  (state as unknown as OpenClawApp).resetToolStream();
+  (state as unknown as OpenClawApp).resetChatScroll();
+  state.applySettings({
+    ...state.settings,
+    sessionKey,
+    lastActiveSessionKey: sessionKey,
+  });
+}
 
 export function renderTab(state: AppViewState, tab: Tab) {
   const href = pathForTab(tab, state.basePath);
@@ -29,6 +65,13 @@ export function renderTab(state: AppViewState, tab: Tab) {
           return;
         }
         event.preventDefault();
+        if (tab === "chat") {
+          const mainSessionKey = resolveSidebarChatSessionKey(state);
+          if (state.sessionKey !== mainSessionKey) {
+            resetChatStateForSessionSwitch(state, mainSessionKey);
+            void state.loadAssistantIdentity();
+          }
+        }
         state.setTab(tab);
       }}
       title=${titleForTab(tab)}
@@ -117,7 +160,7 @@ export function renderChatControls(state: AppViewState) {
             sessionOptions,
             (entry) => entry.key,
             (entry) =>
-              html`<option value=${entry.key}>
+              html`<option value=${entry.key} title=${entry.key}>
                 ${entry.displayName ?? entry.key}
               </option>`,
           )}
@@ -144,7 +187,7 @@ export function renderChatControls(state: AppViewState) {
             });
           }
         }}
-        title="刷新聊天数据"
+        title=${t("chat.refreshTitle")}
       >
         ${refreshIcon}
       </button>
@@ -162,7 +205,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${showThinking}
-        title=${disableThinkingToggle ? "引导过程中已禁用" : "切换智能体思考/工作输出"}
+        title=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
       >
         ${icons.brain}
       </button>
@@ -179,18 +222,13 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${focusActive}
-        title=${disableFocusToggle ? "引导过程中已禁用" : "切换专注模式（隐藏侧边栏和页头）"}
+        title=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
       >
         ${focusIcon}
       </button>
     </div>
   `;
 }
-
-type SessionDefaultsSnapshot = {
-  mainSessionKey?: string;
-  mainKey?: string;
-};
 
 function resolveMainSessionKey(
   hello: AppViewState["hello"],
@@ -211,19 +249,96 @@ function resolveMainSessionKey(
   return null;
 }
 
+/* ── Channel display labels ────────────────────────────── */
+const CHANNEL_LABELS: Record<string, string> = {
+  bluebubbles: "iMessage",
+  telegram: "Telegram",
+  discord: "Discord",
+  signal: "Signal",
+  slack: "Slack",
+  whatsapp: "WhatsApp",
+  matrix: "Matrix",
+  email: "Email",
+  sms: "SMS",
+};
+
+const KNOWN_CHANNEL_KEYS = Object.keys(CHANNEL_LABELS);
+
+/** Parsed type / context extracted from a session key. */
+export type SessionKeyInfo = {
+  /** Prefix for typed sessions (Subagent:/Cron:). Empty for others. */
+  prefix: string;
+  /** Human-readable fallback when no label / displayName is available. */
+  fallbackName: string;
+};
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Parse a session key to extract type information and a human-readable
+ * fallback display name.  Exported for testing.
+ */
+export function parseSessionKey(key: string): SessionKeyInfo {
+  // ── Main session ─────────────────────────────────
+  if (key === "main" || key === "agent:main:main") {
+    return { prefix: "", fallbackName: "Main Session" };
+  }
+
+  // ── Subagent ─────────────────────────────────────
+  if (key.includes(":subagent:")) {
+    return { prefix: "Subagent:", fallbackName: "Subagent:" };
+  }
+
+  // ── Cron job ─────────────────────────────────────
+  if (key.includes(":cron:")) {
+    return { prefix: "Cron:", fallbackName: "Cron Job:" };
+  }
+
+  // ── Direct chat  (agent:<x>:<channel>:direct:<id>) ──
+  const directMatch = key.match(/^agent:[^:]+:([^:]+):direct:(.+)$/);
+  if (directMatch) {
+    const channel = directMatch[1];
+    const identifier = directMatch[2];
+    const channelLabel = CHANNEL_LABELS[channel] ?? capitalize(channel);
+    return { prefix: "", fallbackName: `${channelLabel} · ${identifier}` };
+  }
+
+  // ── Group chat  (agent:<x>:<channel>:group:<id>) ────
+  const groupMatch = key.match(/^agent:[^:]+:([^:]+):group:(.+)$/);
+  if (groupMatch) {
+    const channel = groupMatch[1];
+    const channelLabel = CHANNEL_LABELS[channel] ?? capitalize(channel);
+    return { prefix: "", fallbackName: `${channelLabel} Group` };
+  }
+
+  // ── Channel-prefixed legacy keys (e.g. "bluebubbles:g-…") ──
+  for (const ch of KNOWN_CHANNEL_KEYS) {
+    if (key === ch || key.startsWith(`${ch}:`)) {
+      return { prefix: "", fallbackName: `${CHANNEL_LABELS[ch]} Session` };
+    }
+  }
+
+  // ── Unknown — return key as-is ───────────────────
+  return { prefix: "", fallbackName: key };
+}
+
 export function resolveSessionDisplayName(
   key: string,
   row?: SessionsListResult["sessions"][number],
-) {
-  const displayName = row?.displayName?.trim() || "";
+): string {
   const label = row?.label?.trim() || "";
-  if (displayName && displayName !== key) {
-    return `${displayName} (${key})`;
-  }
+  const displayName = row?.displayName?.trim() || "";
+  const { prefix, fallbackName } = parseSessionKey(key);
+
   if (label && label !== key) {
-    return `${label} (${key})`;
+    return prefix ? `${prefix} ${label}` : label;
   }
-  return key;
+  if (displayName && displayName !== key) {
+    return prefix ? `${prefix} ${displayName}` : displayName;
+  }
+  return fallbackName;
 }
 
 function resolveSessionOptions(
@@ -293,8 +408,8 @@ export function renderThemeToggle(state: AppViewState) {
           class="theme-toggle__button ${state.theme === "system" ? "active" : ""}"
           @click=${applyTheme("system")}
           aria-pressed=${state.theme === "system"}
-          aria-label="系统主题"
-          title="系统"
+          aria-label="System theme"
+          title="System"
         >
           ${renderMonitorIcon()}
         </button>
@@ -302,8 +417,8 @@ export function renderThemeToggle(state: AppViewState) {
           class="theme-toggle__button ${state.theme === "light" ? "active" : ""}"
           @click=${applyTheme("light")}
           aria-pressed=${state.theme === "light"}
-          aria-label="亮色主题"
-          title="亮色"
+          aria-label="Light theme"
+          title="Light"
         >
           ${renderSunIcon()}
         </button>
@@ -311,8 +426,8 @@ export function renderThemeToggle(state: AppViewState) {
           class="theme-toggle__button ${state.theme === "dark" ? "active" : ""}"
           @click=${applyTheme("dark")}
           aria-pressed=${state.theme === "dark"}
-          aria-label="暗色主题"
-          title="暗色"
+          aria-label="Dark theme"
+          title="Dark"
         >
           ${renderMoonIcon()}
         </button>
