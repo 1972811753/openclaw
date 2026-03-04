@@ -54,8 +54,6 @@ tar --exclude='node_modules' \
     -czf "${SCRIPT_DIR}/${PACKAGE_NAME}" \
     dist/ \
     package.json \
-    pnpm-lock.yaml \
-    pnpm-workspace.yaml \
     .npmrc \
     openclaw.mjs \
     assets/ \

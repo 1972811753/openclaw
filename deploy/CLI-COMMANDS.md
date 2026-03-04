@@ -696,7 +696,7 @@ OpenClaw 每次运行都会显示不同的幽默标语，例如：
 
 ```bash
 # 启动 SSH 隧道（在本地运行）
-ssh -f -N -L 18789:localhost:18789 lujing@192.168.2.219
+ssh -f -N -L 18789:localhost:18789 lujing@10.36.224.143
 
 # 验证隧道
 lsof -i :18789

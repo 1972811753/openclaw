@@ -10,7 +10,7 @@ cd /Users/lujing/IdeaProjects/openclaw
 ./deploy/build-mac-package.sh
 
 # 2️⃣ 部署到远程 Mac
-./deploy/deploy-to-mac.sh lujing@192.168.2.219
+./deploy/deploy-to-mac.sh lujing@10.36.224.143
 
 # 3️⃣ 远程 Mac 配置（SSH 登录后）
 cd ~/openclaw

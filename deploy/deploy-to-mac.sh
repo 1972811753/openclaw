@@ -145,28 +145,75 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     DIST_SIZE=$(du -sh dist | cut -f1)
     echo "   ✅ dist 目录存在 (${DIST_SIZE})"
 
+    # 从旧版本复用 node_modules（避免重复下载）
+    if [ -d ~/openclaw/node_modules ]; then
+        echo ""
+        echo "♻️  复用旧版本 node_modules..."
+        cp -r ~/openclaw/node_modules ./node_modules
+        echo "   ✅ 根 node_modules 已复用"
+    fi
+    for ext_pkg in extensions/*/package.json; do
+        ext_name=$(basename $(dirname "$ext_pkg"))
+        old_ext_nm=~/openclaw/extensions/${ext_name}/node_modules
+        if [ -d "$old_ext_nm" ]; then
+            cp -r "$old_ext_nm" "extensions/${ext_name}/node_modules"
+            echo "   ✅ ${ext_name} node_modules 已复用"
+        fi
+    done
+
     echo "📥 安装依赖..."
     echo "   这可能需要几分钟，请耐心等待..."
     echo ""
 
     if [ "$PKG_MANAGER" = "pnpm" ]; then
-        echo "   使用 pnpm 安装..."
-        pnpm install --prod --frozen-lockfile 2>&1 | while read line; do
+        echo "   使用 pnpm 安装根依赖..."
+        pnpm install --prod --no-frozen-lockfile 2>&1 | while read line; do
             # 过滤掉进度条，但保留重要信息
             if [[ ! "$line" =~ "Progress" ]] && [[ ! "$line" =~ "│" ]]; then
                 echo "   $line"
             fi
         done
-        echo "   ✅ pnpm 安装完成"
+        echo "   ✅ pnpm 根依赖安装完成"
     else
-        echo "   使用 npm 安装..."
+        echo "   使用 npm 安装根依赖..."
         npm install --production --no-audit --no-fund 2>&1 | while read line; do
             # 只显示重要的输出行
             if [[ "$line" =~ "added" ]] || [[ "$line" =~ "removed" ]] || [[ "$line" =~ "changed" ]] || [[ "$line" =~ "audited" ]]; then
                 echo "   $line"
             fi
         done
-        echo "   ✅ npm 安装完成"
+        echo "   ✅ npm 根依赖安装完成"
+    fi
+
+    # 安装各 extension 的独有依赖
+    echo ""
+    echo "📥 安装 extensions 依赖..."
+    EXT_INSTALL_COUNT=0
+    ROOT_DIR=$(pwd)
+    for ext_pkg in extensions/*/package.json; do
+        ext_dir=$(dirname "$ext_pkg")
+        ext_name=$(basename "$ext_dir")
+        # 检查该 extension 是否有在根 node_modules 中缺失的依赖
+        has_deps=$(node -e "
+            try {
+                const p=require('${ROOT_DIR}/${ext_pkg}');
+                const deps=Object.keys(p.dependencies||{});
+                const missing=deps.filter(d=>{
+                    try{require.resolve(d,{paths:['${ROOT_DIR}']});return false;}catch{return true;}
+                });
+                console.log(missing.length > 0 ? 'yes' : 'no');
+            } catch(e){ console.log('no'); }
+        " 2>/dev/null)
+        if [ "$has_deps" = "yes" ]; then
+            echo "   安装 $ext_name 依赖..."
+            (cd "$ext_dir" && npm install --production --no-audit --no-fund --prefer-offline 2>&1 | tail -1)
+            EXT_INSTALL_COUNT=$((EXT_INSTALL_COUNT + 1))
+        fi
+    done
+    if [ "$EXT_INSTALL_COUNT" -eq 0 ]; then
+        echo "   ✅ 所有 extension 依赖已满足"
+    else
+        echo "   ✅ 已为 ${EXT_INSTALL_COUNT} 个 extension 安装独有依赖"
     fi
 
     echo ""
@@ -321,5 +368,8 @@ REMOTE_SCRIPT
 
 echo ""
 echo "🎉 部署成功！"
+
+
+
 
 
