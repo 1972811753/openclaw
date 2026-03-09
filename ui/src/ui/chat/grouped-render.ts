@@ -115,10 +115,11 @@ export function renderMessageGroup(
   },
 ) {
   const normalizedRole = normalizeRoleForGrouping(group.role);
-  const assistantName = opts.assistantName ?? "智能体";
+  const assistantName = opts.assistantName ?? "Assistant";
+  const userLabel = group.senderLabel?.trim();
   const who =
     normalizedRole === "user"
-      ? "您"
+      ? (userLabel ?? "You")
       : normalizedRole === "assistant"
         ? assistantName
         : normalizedRole;
@@ -157,7 +158,7 @@ export function renderMessageGroup(
 
 function renderAvatar(role: string, assistant?: Pick<AssistantIdentity, "name" | "avatar">) {
   const normalized = normalizeRoleForGrouping(role);
-  const assistantName = assistant?.name?.trim() || "智能体";
+  const assistantName = assistant?.name?.trim() || "Assistant";
   const assistantAvatar = assistant?.avatar?.trim() || "";
   const initial =
     normalized === "user"
@@ -211,7 +212,7 @@ function renderMessageImages(images: ImageBlock[]) {
         (img) => html`
           <img
             src=${img.url}
-            alt=${img.alt ?? "附加图片"}
+            alt=${img.alt ?? "Attached image"}
             class="chat-message-image"
             @click=${() => openImage(img.url)}
           />
