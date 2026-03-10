@@ -193,8 +193,14 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     else
         echo ""
         echo "📥 安装/更新依赖（增量，优先本地缓存）..."
-        npm install --production --no-audit --no-fund --prefer-offline 2>&1 | \
-            grep -E "added|removed|changed|warn|error" || true
+        NPM_OUTPUT=$(npm install --production --no-audit --no-fund --prefer-offline 2>&1)
+        NPM_EXIT=$?
+        echo "$NPM_OUTPUT" | grep -E "added|removed|changed|warn|error" || true
+        if [ $NPM_EXIT -ne 0 ]; then
+            echo "   ❌ 依赖安装失败"
+            echo "$NPM_OUTPUT" | tail -20
+            exit 1
+        fi
         echo "   ✅ 依赖安装完成"
 
         # 安装各 extension 的独有依赖
@@ -310,6 +316,29 @@ ssh "${REMOTE_HOST}" << 'REMOTE_SCRIPT'
     else
         echo "   ✅ 配置文件存在: ~/.openclaw/openclaw.json"
 
+        # 修正 plist，确保 ProgramArguments 指向自建版本
+        PLIST_FILE="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
+        if [ -f "$PLIST_FILE" ]; then
+            CURRENT_ENTRY=$(/usr/libexec/PlistBuddy -c "Print :ProgramArguments:1" "$PLIST_FILE" 2>/dev/null || echo "")
+            EXPECTED_ENTRY="$HOME/openclaw/openclaw.mjs"
+            if [ "$CURRENT_ENTRY" != "$EXPECTED_ENTRY" ]; then
+                echo ""
+                echo "🔧 修正守护进程入口..."
+                echo "   旧入口: $CURRENT_ENTRY"
+                echo "   新入口: $EXPECTED_ENTRY"
+                /usr/libexec/PlistBuddy -c "Set :ProgramArguments:1 $EXPECTED_ENTRY" "$PLIST_FILE"
+                # 同步更新 Comment 中的版本号
+                NEW_VER=$(node -e "console.log(require('$HOME/openclaw/package.json').version)" 2>/dev/null || echo "unknown")
+                /usr/libexec/PlistBuddy -c "Set :Comment OpenClaw Gateway (v${NEW_VER})" "$PLIST_FILE" 2>/dev/null || true
+                /usr/libexec/PlistBuddy -c "Set :EnvironmentVariables:OPENCLAW_SERVICE_VERSION $NEW_VER" "$PLIST_FILE" 2>/dev/null || true
+                echo "   ✅ 已修正"
+                # plist 改了必须 unload/load 才能生效
+                launchctl unload "$PLIST_FILE" 2>/dev/null || true
+                launchctl load "$PLIST_FILE" 2>/dev/null || true
+                echo "   ✅ 守护进程已重新加载"
+            fi
+        fi
+
         # 尝试重启服务
         if launchctl list 2>/dev/null | grep -q "ai.openclaw.gateway"; then
             echo ""
@@ -380,6 +409,7 @@ REMOTE_SCRIPT
 
 echo ""
 echo "🎉 部署成功！"
+
 
 
 
